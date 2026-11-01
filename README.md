@@ -1,98 +1,113 @@
-# TaskFlow Backend
+# TaskFlow API
 
-Spring Boot 3.2 REST API for TaskFlow.
+Backend for TaskFlow, a task tracker with XP, streaks and file import for things like LeetCode problem lists.
+The React frontend is in [taskflow-web](https://github.com/Ultron03/taskflow-web).
 
-## Prerequisites
+![TaskFlow preview](https://raw.githubusercontent.com/Ultron03/taskflow-web/main/docs/preview.gif)
 
-- Java 21
-- Maven 3.9+
-- PostgreSQL 16 (or Docker)
+## Tech
 
-## Setup
+Java 21, Spring Boot 3.2, Spring Security with JWT, Spring Data JPA, PostgreSQL 16.
+File parsing uses Apache POI (Excel), OpenCSV and PDFBox. API docs come from springdoc.
 
-### 1. Database
+## Running it
 
-```bash
-# With Docker:
-docker run -d --name taskflow-postgres \
-  -e POSTGRES_DB=taskflow -e POSTGRES_USER=taskflow -e POSTGRES_PASSWORD=taskflow \
-  -p 5432:5432 postgres:16-alpine
-
-# Or use docker-compose from the project root:
-docker-compose up postgres
-```
-
-### 2. Environment Variables
+### With Docker
 
 ```bash
-export DB_USER=taskflow
-export DB_PASS=taskflow
-export JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+docker compose up --build
 ```
 
-### 3. Run
+This starts Postgres (exposed on host port 5433) and the API on http://localhost:8080.
+
+### Locally
+
+Start a database first. You can run just the Postgres service from the compose file, but it's exposed on 5433, so point the app at it:
 
 ```bash
-mvn spring-boot:run
-# or with dev profile:
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+docker compose up -d postgres
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/taskflow
+./mvnw spring-boot:run
 ```
 
-The API runs on `http://localhost:8080`.
-Swagger UI: `http://localhost:8080/swagger-ui.html`
+If you already have Postgres running on 5432 with a `taskflow` database, skip the `SPRING_DATASOURCE_URL` line.
 
----
+The `dev` profile recreates the schema on every start and turns on SQL and security logging:
 
-## API Endpoints
-
-### Auth — `/api/v1/auth`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/auth/register` | No | Register new account |
-| POST | `/auth/login` | No | Login, returns JWT |
-| GET | `/auth/me` | Yes | Get current user profile |
-
-### Task Lists — `/api/v1/lists`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/lists` | Yes | Get all lists for user |
-| POST | `/lists` | Yes | Create new list |
-| GET | `/lists/{id}` | Yes | Get single list |
-| PATCH | `/lists/{id}` | Yes | Update list |
-| DELETE | `/lists/{id}` | Yes | Delete list + all tasks |
-
-### Tasks — `/api/v1`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/lists/{listId}/tasks` | Yes | Get tasks in list |
-| POST | `/lists/{listId}/tasks` | Yes | Create task |
-| PATCH | `/tasks/{taskId}` | Yes | Update task |
-| DELETE | `/tasks/{taskId}` | Yes | Delete task |
-| POST | `/lists/{listId}/tasks/bulk` | Yes | Bulk create tasks |
-| PATCH | `/tasks/{taskId}/complete` | Yes | Toggle complete |
-
-### File Import — `/api/v1/lists/{listId}/import`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/import/parse` | Yes | Parse xlsx/csv/pdf/txt → preview |
-| POST | `/import/confirm` | Yes | Save parsed tasks |
-
-### Stats — `/api/v1/stats`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/stats/summary` | Yes | Dashboard summary stats |
-| GET | `/stats/streak` | Yes | Streak data |
-
----
-
-## Docker
-
-From project root:
 ```bash
-docker-compose up --build
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
+
+Swagger UI is at http://localhost:8080/swagger-ui.html.
+
+### Configuration
+
+| Variable                | Default                                     |
+| ----------------------- | ------------------------------------------- |
+| `DB_USER`               | `taskflow`                                  |
+| `DB_PASS`               | `taskflow`                                  |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/taskflow` |
+| `JWT_SECRET`            | dev-only key in `application.yml`           |
+
+The default `JWT_SECRET` is only for local use. For anything public, set your own base64-encoded key of at least 256 bits, for example from `openssl rand -base64 32`.
+
+## API
+
+Everything except register and login needs an `Authorization: Bearer <token>` header. If the token is missing or has expired, you get a `401`.
+
+### Auth
+
+| Method | Path                    | Description            |
+| ------ | ----------------------- | ---------------------- |
+| POST   | `/api/v1/auth/register` | Create an account      |
+| POST   | `/api/v1/auth/login`    | Log in, returns a JWT  |
+| GET    | `/api/v1/auth/me`       | Current user           |
+
+### Lists
+
+| Method | Path                 | Description                 |
+| ------ | -------------------- | --------------------------- |
+| GET    | `/api/v1/lists`      | All lists, with task counts |
+| POST   | `/api/v1/lists`      | Create a list               |
+| GET    | `/api/v1/lists/{id}` | One list                    |
+| PATCH  | `/api/v1/lists/{id}` | Update a list               |
+| DELETE | `/api/v1/lists/{id}` | Delete a list and its tasks |
+
+### Tasks
+
+| Method | Path                                | Description                                     |
+| ------ | ----------------------------------- | ----------------------------------------------- |
+| GET    | `/api/v1/lists/{listId}/tasks`      | Tasks in a list (`?completed=` / `?priority=`)  |
+| POST   | `/api/v1/lists/{listId}/tasks`      | Create a task                                   |
+| POST   | `/api/v1/lists/{listId}/tasks/bulk` | Create several tasks at once                    |
+| PATCH  | `/api/v1/tasks/{taskId}`            | Update a task                                   |
+| PATCH  | `/api/v1/tasks/{taskId}/complete`   | Mark a task done or not done                    |
+| DELETE | `/api/v1/tasks/{taskId}`            | Delete a task                                   |
+
+### Import
+
+| Method | Path                                    | Description                                         |
+| ------ | --------------------------------------- | --------------------------------------------------- |
+| POST   | `/api/v1/lists/{listId}/import/parse`   | Upload an xlsx/csv/pdf/txt file and get back a preview |
+| POST   | `/api/v1/lists/{listId}/import/confirm` | Save the previewed tasks                            |
+
+Uploads are limited to 20 MB.
+
+### Stats
+
+| Method | Path                    | Description                                       |
+| ------ | ----------------------- | ------------------------------------------------- |
+| GET    | `/api/v1/stats/summary` | Total XP, completion %, current streak, today's count |
+| GET    | `/api/v1/stats/streak`  | Current and longest streak, plus active days      |
+
+## XP
+
+| Difficulty | XP  |
+| ---------- | --- |
+| Easy       | 10  |
+| Concept    | 15  |
+| Medium     | 25  |
+| Hard       | 50  |
+| Project    | 100 |
+
+Tasks with no difficulty are worth 10. Your streak counts consecutive days with at least one completed task. If you haven't finished anything yet today, the streak still counts up to yesterday.

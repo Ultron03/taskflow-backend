@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -26,7 +25,7 @@ public class StatsService {
         long completedTasks = taskRepository.countCompletedByUserId(userId);
         long totalXp = taskRepository.sumXpByUserId(userId);
 
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = LocalDate.now();
         LocalDateTime startOfToday = today.atStartOfDay();
         long todayCompleted = taskRepository.findCompletedSince(userId, startOfToday).size();
 
@@ -64,7 +63,7 @@ public class StatsService {
 
         if (completedDates.isEmpty()) return 0;
 
-        LocalDate day = LocalDate.now(ZoneOffset.UTC);
+        LocalDate day = LocalDate.now();
         int streak = 0;
 
         while (completedDates.contains(day)) {
@@ -74,7 +73,7 @@ public class StatsService {
 
         // also count yesterday if today has no completions yet
         if (streak == 0) {
-            day = LocalDate.now(ZoneOffset.UTC).minusDays(1);
+            day = LocalDate.now().minusDays(1);
             while (completedDates.contains(day)) {
                 streak++;
                 day = day.minusDays(1);

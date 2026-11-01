@@ -29,8 +29,11 @@ public class TaskListService {
             .toList();
     }
 
-    public TaskList createList(User user, String name, String description,
-                               String color, String icon, ListCategory category) {
+    public Map<String, Object> createList(User user, String name, String description,
+                                          String color, String icon, ListCategory category) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("List name is required");
+        }
         TaskList list = TaskList.builder()
             .owner(user)
             .name(name)
@@ -40,7 +43,7 @@ public class TaskListService {
             .category(category)
             .build();
         log.info("Creating list '{}' for user {}", name, user.getEmail());
-        return taskListRepository.save(list);
+        return toListResponse(taskListRepository.save(list), 0, 0);
     }
 
     public Map<String, Object> getList(Long id, User user) {
@@ -51,9 +54,15 @@ public class TaskListService {
     }
 
     @Transactional
-    public TaskList updateList(Long id, User user, Map<String, Object> updates) {
+    public Map<String, Object> updateList(Long id, User user, Map<String, Object> updates) {
         TaskList list = findOwned(id, user);
-        if (updates.containsKey("name")) list.setName((String) updates.get("name"));
+        if (updates.containsKey("name")) {
+            String name = (String) updates.get("name");
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("List name is required");
+            }
+            list.setName(name);
+        }
         if (updates.containsKey("description")) list.setDescription((String) updates.get("description"));
         if (updates.containsKey("color")) list.setColor((String) updates.get("color"));
         if (updates.containsKey("icon")) list.setIcon((String) updates.get("icon"));
@@ -61,7 +70,10 @@ public class TaskListService {
             Object val = updates.get("sortOrder");
             list.setSortOrder(val instanceof Integer i ? i : Integer.parseInt(val.toString()));
         }
-        return taskListRepository.save(list);
+        taskListRepository.save(list);
+        return toListResponse(list,
+            taskRepository.countByTaskList(list),
+            taskRepository.countByTaskListAndCompletedTrue(list));
     }
 
     @Transactional

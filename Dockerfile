@@ -1,8 +1,9 @@
-FROM eclipse-temurin:21-jdk-jammy AS builder
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
 COPY pom.xml .
+RUN mvn -q dependency:go-offline
 COPY src ./src
-RUN apt-get update && apt-get install -y maven && mvn package -DskipTests
+RUN mvn -q package -DskipTests
 
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app

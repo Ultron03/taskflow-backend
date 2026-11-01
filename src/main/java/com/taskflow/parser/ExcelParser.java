@@ -12,6 +12,8 @@ import java.util.List;
 @Slf4j
 public class ExcelParser {
 
+    private final DataFormatter formatter = new DataFormatter();
+
     public List<ParsedTaskDTO> parse(InputStream inputStream) throws Exception {
         List<ParsedTaskDTO> results = new ArrayList<>();
 
@@ -23,7 +25,7 @@ public class ExcelParser {
             int titleCol = -1, difficultyCol = -1, categoryCol = -1, urlCol = -1;
 
             for (Cell cell : headerRow) {
-                String header = cell.getStringCellValue().toLowerCase().trim();
+                String header = formatter.formatCellValue(cell).toLowerCase().trim();
                 int idx = cell.getColumnIndex();
                 if (header.contains("task") || header.contains("title")) titleCol = idx;
                 else if (header.contains("difficulty") || header.contains("level")) difficultyCol = idx;
@@ -59,12 +61,8 @@ public class ExcelParser {
     private String getCellValue(Row row, int col) {
         Cell cell = row.getCell(col);
         if (cell == null) return null;
-        return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue();
-            case NUMERIC -> String.valueOf((long) cell.getNumericCellValue());
-            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
-            default -> null;
-        };
+        String value = formatter.formatCellValue(cell);
+        return value.isBlank() ? null : value;
     }
 
     private String normalizeDifficulty(String raw) {

@@ -28,7 +28,7 @@ public class TaskListController {
         @AuthenticationPrincipal User user,
         @RequestBody Map<String, Object> body
     ) {
-        TaskList list = taskListService.createList(
+        Map<String, Object> list = taskListService.createList(
             user,
             (String) body.get("name"),
             (String) body.get("description"),
@@ -53,7 +53,7 @@ public class TaskListController {
         @AuthenticationPrincipal User user,
         @RequestBody Map<String, Object> updates
     ) {
-        TaskList list = taskListService.updateList(id, user, updates);
+        Map<String, Object> list = taskListService.updateList(id, user, updates);
         return ResponseEntity.ok(Map.of("list", list));
     }
 
